@@ -165,8 +165,8 @@ with st.sidebar:
     )
     
     kode_ref_pend = st.text_input(
-        "Kode Referensi Pendidikan",
-        placeholder="Contoh: 5109751 (opsional)",
+        "Kode Referensi Pendidikan (Cth: 5009092, 5080325)",
+        placeholder="(opsional)",
         help="Kosongkan untuk mengambil semua data"
     )
     
