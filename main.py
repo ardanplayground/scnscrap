@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Konfigurasi halaman
 st.set_page_config(
-    page_title="SSCASN Scraper",
+    page_title="SSC Scraper",
     page_icon="📊",
     layout="wide"
 )
@@ -37,7 +37,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header
-st.markdown('<div class="main-header">📊 SSCASN Data Scraper 2025</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">📊 SSC Data Scraper</div>', unsafe_allow_html=True)
 
 # Fungsi untuk fetch data dengan retry mechanism
 def fetch_data_page(url, headers, retries=3):
