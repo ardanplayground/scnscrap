@@ -5,7 +5,7 @@ from io import BytesIO
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Konfigurasi halaman
+# Konfigurasi halaman a
 st.set_page_config(
     page_title="SSCASN Scraper",
     page_icon="📊",
