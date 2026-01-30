@@ -86,22 +86,41 @@ def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=3):
     first_url = f'{base_url}0'
     first_response = fetch_data_page(first_url, headers)
     
-    if not first_response or 'data' not in first_response:
-        st.error("Gagal mengambil data. Pastikan koneksi internet stabil.")
+    if not first_response:
+        st.error("❌ Gagal mengambil data. Pastikan koneksi internet stabil.")
         return pd.DataFrame()
     
-    # Ambil total data
-    total_data = first_response['data'].get('meta', {}).get('total', 0)
+    # Debug: tampilkan struktur response
+    # st.write("Debug - Response structure:", first_response)
     
-    if total_data == 0:
-        st.warning("Tidak ada data yang ditemukan.")
+    # Handle berbagai struktur response yang mungkin
+    total_data = 0
+    data_list = []
+    
+    # Cek struktur response
+    if isinstance(first_response, dict):
+        # Struktur 1: {'data': {'meta': {...}, 'data': [...]}}
+        if 'data' in first_response and isinstance(first_response['data'], dict):
+            total_data = first_response['data'].get('meta', {}).get('total', 0)
+            data_list = first_response['data'].get('data', [])
+        # Struktur 2: {'meta': {...}, 'data': [...]}
+        elif 'meta' in first_response:
+            total_data = first_response.get('meta', {}).get('total', 0)
+            data_list = first_response.get('data', [])
+        # Struktur 3: langsung array
+        elif 'data' in first_response and isinstance(first_response['data'], list):
+            data_list = first_response['data']
+            total_data = len(data_list)
+    
+    if total_data == 0 and len(data_list) == 0:
+        st.warning("⚠️ Tidak ada data yang ditemukan. Periksa kembali kode referensi pendidikan atau tahun yang dimasukkan.")
         return pd.DataFrame()
     
     all_data = []
     items_per_page = 10
     
     # Hitung jumlah halaman
-    total_pages = (total_data + items_per_page - 1) // items_per_page
+    total_pages = max(1, (total_data + items_per_page - 1) // items_per_page)
     
     # Setup progress bar
     progress_bar = st.progress(0)
@@ -109,8 +128,8 @@ def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=3):
     status_text.text(f"📝 Total data: {total_data} formasi | Mengambil halaman 1/{total_pages}...")
     
     # Tambahkan data dari first page
-    if 'data' in first_response['data']:
-        all_data.extend(first_response['data']['data'])
+    if data_list:
+        all_data.extend(data_list)
     
     # Buat list URLs untuk halaman selanjutnya
     urls = [f'{base_url}{offset}' for offset in range(items_per_page, total_data, items_per_page)]
@@ -125,11 +144,19 @@ def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=3):
                 completed += 1
                 progress = min((completed + 1) / total_pages, 1.0)  # +1 untuk first page
                 progress_bar.progress(progress)
-                status_text.text(f"Mengambil data... {completed + 1}/{total_pages} halaman")
+                status_text.text(f"⏳ Mengambil data... {completed + 1}/{total_pages} halaman")
                 
                 result = future.result()
-                if result and 'data' in result and 'data' in result['data']:
-                    all_data.extend(result['data']['data'])
+                if result and isinstance(result, dict):
+                    # Handle berbagai struktur response
+                    page_data = []
+                    if 'data' in result and isinstance(result['data'], dict) and 'data' in result['data']:
+                        page_data = result['data']['data']
+                    elif 'data' in result and isinstance(result['data'], list):
+                        page_data = result['data']
+                    
+                    if page_data:
+                        all_data.extend(page_data)
     
     progress_bar.progress(1.0)
     status_text.text(f"✅ Selesai! Total {len(all_data)} data berhasil diambil.")
@@ -165,8 +192,8 @@ with st.sidebar:
     )
     
     kode_ref_pend = st.text_input(
-        "Kode Referensi Pendidikan (Cth: 5009092, 5080325)",
-        placeholder="(opsional)",
+        "Kode Referensi Pendidikan",
+        placeholder="Contoh: 5009092, 5080325 (opsional)",
         help="Kosongkan untuk mengambil semua data"
     )
     
@@ -186,7 +213,7 @@ if scrape_button:
     if not tahun or not tahun.strip():
         st.error("❌ Tahun tidak boleh kosong!")
     else:
-        with st.spinner("Memproses data..."):
+        with st.spinner("⏳ Memproses data..."):
             df = scrape_sscasn_data(tahun, kode_ref_pend)
             
             if not df.empty:
@@ -240,7 +267,7 @@ if 'df' in st.session_state and not st.session_state['df'].empty:
         start_idx = (page - 1) * items_per_page
         end_idx = min(start_idx + items_per_page, total_rows)
         
-        st.info(f"Menampilkan {start_idx + 1}-{end_idx} dari {total_rows} data")
+        st.info(f"📊 Menampilkan {start_idx + 1}-{end_idx} dari {total_rows} data")
         
         # Tampilkan tabel
         st.dataframe(
