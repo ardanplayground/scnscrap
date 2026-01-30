@@ -5,7 +5,7 @@ from io import BytesIO
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Konfigurasi halaman a
+# Konfigurasi halaman
 st.set_page_config(
     page_title="SSCASN Scraper",
     page_icon="📊",
@@ -43,20 +43,26 @@ st.markdown('<div class="main-header">📊 SSCASN Data Scraper 2025</div>', unsa
 def fetch_data_page(url, headers, retries=3):
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=15)
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 429:  # Rate limit
                 time.sleep(2 ** attempt)  # Exponential backoff
                 continue
+            else:
+                time.sleep(1)
+        except requests.exceptions.Timeout:
+            if attempt < retries - 1:
+                time.sleep(2)
+            continue
         except Exception as e:
             if attempt == retries - 1:
-                st.warning(f"Error fetching {url}: {str(e)}")
+                return None
             time.sleep(1)
     return None
 
 # Fungsi scraping dengan multithreading
-def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=5):
+def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=3):
     # Validasi tahun
     if not tahun or not tahun.strip():
         tahun = "2025"
@@ -91,17 +97,16 @@ def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=5):
         st.warning("Tidak ada data yang ditemukan.")
         return pd.DataFrame()
     
-    st.info(f"📝 Total data yang ditemukan: **{total_data}** formasi")
-    
-    # Setup progress bar
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
     all_data = []
     items_per_page = 10
     
     # Hitung jumlah halaman
     total_pages = (total_data + items_per_page - 1) // items_per_page
+    
+    # Setup progress bar
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    status_text.text(f"📝 Total data: {total_data} formasi | Mengambil halaman 1/{total_pages}...")
     
     # Tambahkan data dari first page
     if 'data' in first_response['data']:
@@ -111,19 +116,20 @@ def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=5):
     urls = [f'{base_url}{offset}' for offset in range(items_per_page, total_data, items_per_page)]
     
     # Fetch menggunakan ThreadPoolExecutor untuk kecepatan
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_url = {executor.submit(fetch_data_page, url, headers): url for url in urls}
-        
-        completed = 0
-        for future in as_completed(future_to_url):
-            completed += 1
-            progress = (completed + 1) / total_pages  # +1 untuk first page
-            progress_bar.progress(min(progress, 1.0))
-            status_text.text(f"Mengambil data... {completed + 1}/{total_pages} halaman")
+    if urls:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_url = {executor.submit(fetch_data_page, url, headers): url for url in urls}
             
-            result = future.result()
-            if result and 'data' in result and 'data' in result['data']:
-                all_data.extend(result['data']['data'])
+            completed = 0
+            for future in as_completed(future_to_url):
+                completed += 1
+                progress = min((completed + 1) / total_pages, 1.0)  # +1 untuk first page
+                progress_bar.progress(progress)
+                status_text.text(f"Mengambil data... {completed + 1}/{total_pages} halaman")
+                
+                result = future.result()
+                if result and 'data' in result and 'data' in result['data']:
+                    all_data.extend(result['data']['data'])
     
     progress_bar.progress(1.0)
     status_text.text(f"✅ Selesai! Total {len(all_data)} data berhasil diambil.")
