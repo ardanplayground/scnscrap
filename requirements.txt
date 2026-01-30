@@ -1,0 +1,10 @@
+# SSCASN Scraper - Streamlit App Requirements
+# Python 3.8+
+
+# Core libraries
+streamlit>=1.30.0
+requests>=2.31.0
+pandas>=2.0.0
+
+# Optional: untuk performance
+openpyxl>=3.1.0
