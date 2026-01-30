@@ -56,8 +56,12 @@ def fetch_data_page(url, headers, retries=3):
     return None
 
 # Fungsi scraping dengan multithreading
-def scrape_sscasn_data(kode_ref_pend=None, max_workers=5):
-    base_url = 'https://api-sscasn.bkn.go.id/2025/portal/spf?'
+def scrape_sscasn_data(tahun="2025", kode_ref_pend=None, max_workers=5):
+    # Validasi tahun
+    if not tahun or not tahun.strip():
+        tahun = "2025"
+    
+    base_url = f'https://api-sscasn.bkn.go.id/{tahun.strip()}/portal/spf?'
     
     # Tambahkan parameter kode_ref_pend jika ada
     if kode_ref_pend and kode_ref_pend.strip():
@@ -147,6 +151,13 @@ def convert_df_to_excel(df):
 with st.sidebar:
     st.header("⚙️ Pengaturan")
     
+    tahun = st.text_input(
+        "Tahun",
+        value="2025",
+        placeholder="Contoh: 2025",
+        help="Masukkan tahun SSCASN"
+    )
+    
     kode_ref_pend = st.text_input(
         "Kode Referensi Pendidikan",
         placeholder="Contoh: 5109751 (opsional)",
@@ -156,6 +167,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📌 Panduan:")
     st.markdown("""
+    - **Tahun**: Masukkan tahun (2024, 2025, 2026, dll)
     - **Kosongkan** kode untuk scrape semua formasi
     - **Isi kode** untuk filter formasi tertentu
     - Proses akan berjalan otomatis setelah klik tombol
@@ -165,15 +177,19 @@ with st.sidebar:
 
 # Main content
 if scrape_button:
-    with st.spinner("Memproses data..."):
-        df = scrape_sscasn_data(kode_ref_pend)
-        
-        if not df.empty:
-            # Simpan di session state
-            st.session_state['df'] = df
-            st.success(f"✅ Berhasil mengambil {len(df)} data!")
-        else:
-            st.error("❌ Tidak ada data yang berhasil diambil.")
+    if not tahun or not tahun.strip():
+        st.error("❌ Tahun tidak boleh kosong!")
+    else:
+        with st.spinner("Memproses data..."):
+            df = scrape_sscasn_data(tahun, kode_ref_pend)
+            
+            if not df.empty:
+                # Simpan di session state
+                st.session_state['df'] = df
+                st.session_state['tahun'] = tahun
+                st.success(f"✅ Berhasil mengambil {len(df)} data!")
+            else:
+                st.error("❌ Tidak ada data yang berhasil diambil.")
 
 # Tampilkan data jika ada di session state
 if 'df' in st.session_state and not st.session_state['df'].empty:
@@ -252,15 +268,16 @@ if 'df' in st.session_state and not st.session_state['df'].empty:
 
 else:
     # Tampilan awal
-    st.info("👈 Silakan masukkan kode referensi pendidikan (opsional) dan klik tombol **Mulai Scraping** di sidebar untuk memulai.")
+    st.info("👈 Silakan masukkan tahun dan kode referensi pendidikan (opsional), lalu klik tombol **Mulai Scraping** di sidebar untuk memulai.")
     
     st.markdown("---")
     st.markdown("### 📖 Cara Penggunaan:")
     st.markdown("""
-    1. **(Opsional)** Masukkan kode referensi pendidikan di sidebar
-    2. Klik tombol **Mulai Scraping**
-    3. Tunggu proses selesai
-    4. Data akan ditampilkan dalam tabel interaktif
-    5. Gunakan fitur pencarian untuk filter data
-    6. Download hasil dalam format Excel atau CSV
+    1. Masukkan **tahun** (contoh: 2025, 2026, 2024)
+    2. **(Opsional)** Masukkan kode referensi pendidikan di sidebar
+    3. Klik tombol **Mulai Scraping**
+    4. Tunggu proses selesai
+    5. Data akan ditampilkan dalam tabel interaktif
+    6. Gunakan fitur pencarian untuk filter data
+    7. Download hasil dalam format Excel atau CSV
     """)
